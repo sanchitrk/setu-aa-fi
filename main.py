@@ -1,6 +1,8 @@
 import base64
 import json
 
+from app import MongoStorage, SetuFiData
+
 
 def run_pub_sub(event, context):
     """Background Cloud Function to be triggered by Pub/Sub.
@@ -27,5 +29,12 @@ def run_pub_sub(event, context):
         print("----- RECIEVED PUBSUB DATA -----")
         print(data)
         print("---- END OF DATA ----")
+
+        workflow_id = data["workflowId"]
+        storage = MongoStorage()
+        workflow_item_doc = storage.get_workflow_item(workflow_id=workflow_id)
+
+        setu_fi_data = SetuFiData(storage=storage, workflow_item=workflow_item_doc)
+        setu_fi_data.process_fi_encrypted_data()
     else:
         print("no data found in event doing nothing")

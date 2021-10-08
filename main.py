@@ -34,7 +34,12 @@ def run_pub_sub(event, context):
         storage = MongoStorage()
         workflow_item_doc = storage.get_workflow_item(workflow_id=workflow_id)
 
+        if workflow_item_doc["workflowStatus"] == "SUCCESS":
+            print("workflow already a success.")
+            return
+
         setu_fi_data = SetuFiData(storage=storage, workflow_item=workflow_item_doc)
         setu_fi_data.process_fi_encrypted_data()
+        storage.update_workflow_status(workflow_id=workflow_id, status="SUCCESS")
     else:
         print("no data found in event doing nothing")

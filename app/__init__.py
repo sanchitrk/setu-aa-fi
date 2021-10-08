@@ -44,6 +44,15 @@ class MongoStorage(object):
         result = self.mongodb.get_collection("temp").insert_one(item)
         print(result.inserted_id)
 
+    def update_workflow_status(self, workflow_id, status):
+        print("updating workflow status...")
+        update_fields = {"workflowStatus": status}
+        result = self.mongodb.get_collection("aaSetuWorkflows").update_one(
+            {"workflowId": workflow_id},
+            {"$set": update_fields},
+        )
+        print(f"updated collection aaSetuWorkflows matched count: {result.matched_count}")
+
 
 class SetuFiData(object):
     def __init__(self, storage: MongoStorage, workflow_item: dict) -> None:

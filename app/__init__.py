@@ -118,8 +118,7 @@ class SetuFiData(object):
 
     @property
     def user_ref(self):
-        user_ref = self.workflow_item["userRef"]
-        return user_ref
+        return self.workflow_item["userRef"]
 
     @property
     def session_id(self):
@@ -175,7 +174,8 @@ class SetuFiData(object):
             self.storage.store_in_temp_collection(decoded_data)
             try:
                 self.storage.update_user_linked_holdings(self.user_ref, decoded_data)
-            except:
+            except Exception as exp:
+                print(exp)
                 print("error loading data into linked holdings - this should not happen")
 
     def process_fi_encrypted_data(self):

@@ -28,6 +28,47 @@ def makeDetachedJWS(payload, key):
     return ".".join(splittedJWS)
 
 
+def extract_equity_dataset(data: dict):
+    linked_accout_ref = data["linkedAccRef"]
+    print(f"extracting for linked account ref {linked_accout_ref}")
+    required_data = []
+
+    transactions = data["transactions"]
+    transaction = transactions["transactions"]
+    for tr in transaction:
+        isin = tr["isin"]
+        name = tr["companyName"]
+        try:
+            average_price = int(tr["strikePrice"])
+        except:
+            average_price = 200
+        data = {"isin": isin, "name": name, "averagePrice": average_price}
+        required_data.append(data)
+    return required_data
+
+
+def extract_mutual_funds(data: dict):
+    linked_accout_ref = data["linkedAccRef"]
+    print(f"extracting for linked account ref {linked_accout_ref}")
+    required_data = []
+
+    summary = data["summary"]
+    investment = summary["investment"]
+    holdings = investment["holdings"]
+    holding = holdings["holding"]
+
+    for hl in holding:
+        isin = hl["isin"]
+        name = hl["amc"] + hl["schemeCode"]
+        try:
+            average_price = int(hl["nav"])
+        except:
+            average_price = 56
+        data = {"isin": isin, "name": name, "averagePrice": average_price}
+        required_data.append(data)
+    return required_data
+
+
 class MongoStorage(object):
     def __init__(self):
         print("initialize mongo storage...")
@@ -44,6 +85,22 @@ class MongoStorage(object):
         result = self.mongodb.get_collection("temp").insert_one(item)
         print(result.inserted_id)
 
+    def update_user_linked_holdings(self, user_ref, item):
+        account = item["account"]
+        data_type = account["type"]
+        if data_type == "equities":
+            results = extract_equity_dataset(account)
+            for result in results:
+                result["userRef"] = user_ref
+                self.mongodb.get_collection("linkedHoldings").insert_one(result)
+        elif data_type == "mutual_funds":
+            results = extract_mutual_funds(account)
+            for result in results:
+                result["userRef"] = user_ref
+                self.mongodb.get_collection("linkedHoldings").insert_one(result)
+        else:
+            print("hmm, no match for data type, unsupported")
+
     def update_workflow_status(self, workflow_id, status):
         print("updating workflow status...")
         update_fields = {"workflowStatus": status}
@@ -58,6 +115,11 @@ class SetuFiData(object):
     def __init__(self, storage: MongoStorage, workflow_item: dict) -> None:
         self.storage = storage
         self.workflow_item = workflow_item
+
+    @property
+    def user_ref(self):
+        user_ref = self.workflow_item["userRef"]
+        return user_ref
 
     @property
     def session_id(self):
@@ -111,6 +173,10 @@ class SetuFiData(object):
             fi_data_base64 = response.json()
             decoded_data = self._decode_base64_data(fi_data_base64)
             self.storage.store_in_temp_collection(decoded_data)
+            try:
+                self.storage.update_user_linked_holdings(self.user_ref, decoded_data)
+            except:
+                print("error loading data into linked holdings - this should not happen")
 
     def process_fi_encrypted_data(self):
         headers = {"client_api_key": SETU_CLIENT_API_KEY, "x-jws-signature": ""}
